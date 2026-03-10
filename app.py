@@ -16,15 +16,27 @@ import streamlit as st
 ROOT = Path(__file__).parent
 sys.path.insert(0, str(ROOT))
 
-# ── .env loader ───────────────────────────────────────────────────────────────
-_env = ROOT / ".env"
-if _env.exists():
-    with open(_env) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip())
+# ── secrets loader (Streamlit Cloud → local .env fallback) ────────────────────
+def _load_secrets():
+    # 1. Streamlit Cloud secrets
+    try:
+        for k in ["GROQ_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY"]:
+            if k in st.secrets:
+                os.environ.setdefault(k, st.secrets[k])
+        return
+    except Exception:
+        pass
+    # 2. Local .env fallback
+    _env = ROOT / ".env"
+    if _env.exists():
+        with open(_env) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip())
+
+_load_secrets()
 
 from core.providers import PROVIDERS, call_groq, call_claude, call_gemini
 from core.database import init_db, log_run, save_report
